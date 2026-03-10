@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crosspoint Dictionary Prototype</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #2a2a2a;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 32px 16px;
+      color: #ccc;
+    }
+
+    /* ── Layout ── */
+    .prototype-container {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── Device Frame ── */
+    .device {
+      position: relative;
+      width: 320px;
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 28px 16px 60px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    /* ── E-Ink Screen ── */
+    .screen {
+      position: relative;
+      width: 288px;
+      height: 480px;
+      background: #e8e4d9;
+      border: 2px solid #999;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    /* ── Reading Content ── */
+    .reading-content {
+      padding: 20px 16px;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 14px;
+      line-height: 1.85;
+      color: #111;
+    }
+
+    .reading-content .status-bar {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 9px;
+      color: #555;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #bbb;
+    }
+
+    /* ── Word spans ── */
+    .word {
+      cursor: default;
+      padding: 1px 0;
+      border-radius: 2px;
+      transition: none;
+    }
+
+    .word.highlighted {
+      background: #111;
+      color: #e8e4d9;
+      padding: 1px 3px;
+      margin: 0 -3px;
+    }
+
+    /* ── Dictionary Mode Indicator ── */
+    .dict-indicator {
+      display: none;
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 9px;
+      color: #111;
+      background: #ccc;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      z-index: 5;
+    }
+
+    .dict-indicator.active {
+      display: block;
+    }
+
+    /* ── Definition Overlay (full screen takeover) ── */
+    .definition-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #e8e4d9;
+      z-index: 10;
+      flex-direction: column;
+    }
+
+    .definition-overlay.visible {
+      display: flex;
+    }
+
+    /* Scrollable content area */
+    .def-content {
+      flex: 1;
+      overflow: hidden;
+      padding: 16px;
+    }
+
+    .def-content .def-word {
+      font-family: 'Georgia', serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #111;
+      margin-bottom: 2px;
+    }
+
+    .def-content .def-pronunciation {
+      font-family: 'Georgia', serif;
+      font-size: 12px;
+      color: #555;
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    .def-content .def-type {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      color: #444;
+      font-style: italic;
+      margin-bottom: 4px;
+    }
+
+    .def-content .def-text {
+      font-family: 'Georgia', serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #222;
+      margin-bottom: 14px;
+    }
+
+    .def-content .vocab-btn {
+      display: block;
+      width: 100%;
+      background: #111;
+      color: #e8e4d9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px;
+      border: none;
+      text-align: center;
+      margin-bottom: 12px;
+      cursor: default;
+    }
+
+    .def-content .vocab-btn.added {
+      background: #e8e4d9;
+      color: #111;
+      border: 2px solid #111;
+    }
+
+    /* Related words section */
+    .def-content .root-words {
+      border-top: 1px solid #999;
+      padding-top: 10px;
+    }
+
+    .def-content .root-words-label {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .def-content .root-word-item {
+      font-family: 'Georgia', serif;
+      font-size: 12px;
+      color: #111;
+      padding: 5px 4px;
+      border-bottom: 1px dotted #bbb;
+    }
+
+    .def-content .root-word-item:last-child {
+      border-bottom: none;
+    }
+
+    .def-content .root-word-item.selected {
+      background: #111;
+      color: #e8e4d9;
+      padding: 5px 6px;
+      margin: 0 -2px;
+    }
+
+    .def-content .root-word-item.selected span {
+      color: #bbb;
+    }
+
+    /* ── Pagination bar (bottom of overlay) ── */
+    .def-pagination {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      border-top: 1px solid #999;
+      background: #ddd8cc;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 10px;
+      color: #555;
+      flex-shrink: 0;
+    }
+
+    .def-pagination.visible {
+      display: flex;
+    }
+
+    .def-pagination .page-arrows {
+      font-size: 12px;
+      color: #333;
+      letter-spacing: 8px;
+    }
+
+    .def-pagination .page-arrow-disabled {
+      color: #bbb;
+    }
+
+    /* ── Bottom hint bar ── */
+    .def-bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 16px;
+      border-top: 1px solid #bbb;
+      background: #ddd8cc;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 9px;
+      color: #888;
+      flex-shrink: 0;
+    }
+
+    /* ── Physical Buttons on Device ── */
+    .front-buttons {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 8px 0;
+    }
+
+    .hw-btn {
+      width: 56px;
+      height: 28px;
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #aaa;
+      font-size: 8px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .hw-btn:active {
+      background: #555;
+    }
+
+    .side-buttons {
+      position: absolute;
+      right: -44px;
+      top: 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .side-btn {
+      width: 36px;
+      height: 36px;
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #aaa;
+      font-size: 7px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-weight: 600;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.1;
+      user-select: none;
+    }
+
+    .side-btn:active {
+      background: #555;
+    }
+
+    /* ── Instructions Panel ── */
+    .instructions {
+      max-width: 340px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .instructions h2 {
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    .instructions h3 {
+      font-size: 13px;
+      color: #fff;
+      margin: 20px 0 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .instructions .step {
+      margin-bottom: 6px;
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .instructions kbd {
+      background: #444;
+      color: #eee;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      white-space: nowrap;
+      border: 1px solid #666;
+    }
+
+    .state-display {
+      margin-top: 24px;
+      padding: 12px;
+      background: #333;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      color: #8f8;
+      white-space: pre-line;
+    }
+
+    .state-display .label {
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .keyboard-hint {
+      margin-top: 20px;
+      padding: 12px;
+      background: #383838;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.8;
+      color: #aaa;
+    }
+
+    .keyboard-hint strong {
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+
+<div class="prototype-container">
+
+  <!-- Device -->
+  <div class="device">
+    <div class="screen" id="screen">
+
+      <div class="dict-indicator" id="dictIndicator">DICT</div>
+
+      <div class="reading-content" id="readingContent">
+        <div class="status-bar">
+          <span>The Great Gatsby</span>
+          <span>Ch. 1 · 3%</span>
+        </div>
+        <div id="textArea"></div>
+      </div>
+
+      <div class="definition-overlay" id="definitionOverlay">
+        <div class="def-content" id="defContent">
+          <div class="def-word" id="defWord"></div>
+          <div class="def-pronunciation" id="defPronunciation"></div>
+          <div class="def-type" id="defType"></div>
+          <div class="def-text" id="defText"></div>
+          <div class="vocab-btn" id="vocabBtn">+ Add to Vocabulary Builder</div>
+          <div class="root-words" id="rootWords"></div>
+        </div>
+        <div class="def-pagination" id="defPagination">
+          <span id="pageArrowLeft" class="page-arrow-disabled">&#9664;</span>
+          <span id="pageInfo">Page 1 / 1</span>
+          <span id="pageArrowRight">&#9654;</span>
+        </div>
+        <div class="def-bottom-bar">BACK close · LEFT/RIGHT pages · VOL ▲▼ related words · CONFIRM select</div>
+      </div>
+    </div>
+
+    <!-- Front-facing buttons -->
+    <div class="front-buttons">
+      <button class="hw-btn" id="btnBack" onclick="pressBack()">Back</button>
+      <button class="hw-btn" id="btnConfirm" onclick="pressConfirm()">Confirm</button>
+      <button class="hw-btn" id="btnLeft" onclick="pressLeft()">Left</button>
+      <button class="hw-btn" id="btnRight" onclick="pressRight()">Right</button>
+    </div>
+
+    <!-- Side buttons -->
+    <div class="side-buttons">
+      <div class="side-btn" style="background:#222;border-color:#444;color:#666;pointer-events:none;">PWR</div>
+      <button class="side-btn" id="btnVolUp" onclick="pressVolUp()">VOL ▲</button>
+      <button class="side-btn" id="btnVolDown" onclick="pressVolDown()">VOL ▼</button>
+      <div class="side-btn" style="background:#222;border-color:#444;color:#666;pointer-events:none;">RST</div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions">
+    <h2>Dictionary Prototype</h2>
+    <p style="color:#999;margin-bottom:16px;">Interactive prototype simulating dictionary lookup on the Xteink X4 with Crosspoint firmware.</p>
+
+    <h3>Word Selection</h3>
+    <div class="step">1. Double-tap <kbd>VOL ▼</kbd> to activate dictionary mode</div>
+    <div class="step">2. Navigate lines with <kbd>VOL ▲</kbd> <kbd>VOL ▼</kbd></div>
+    <div class="step">3. Move between words with <kbd>LEFT</kbd> <kbd>RIGHT</kbd></div>
+    <div class="step">4. Press <kbd>CONFIRM</kbd> to look up selected word</div>
+    <div class="step">5. Double-tap <kbd>VOL ▼</kbd> to exit dictionary mode</div>
+
+    <h3>Definition View</h3>
+    <div class="step">· <kbd>LEFT</kbd> <kbd>RIGHT</kbd> page through long definitions</div>
+    <div class="step">· <kbd>VOL ▲</kbd> <kbd>VOL ▼</kbd> browse related words</div>
+    <div class="step">· <kbd>CONFIRM</kbd> look up selected related word or add to vocab</div>
+    <div class="step">· <kbd>BACK</kbd> close definition</div>
+
+    <div class="state-display">
+      <div class="label">Current State</div>
+      <div id="stateText">READING MODE</div>
+    </div>
+
+    <div class="state-display" style="margin-top:12px;">
+      <div class="label">Dictionary</div>
+      <div id="dictWordCount" style="color:#8cf;">Loading...</div>
+    </div>
+
+    <div class="keyboard-hint">
+      <strong>Keyboard shortcuts:</strong><br>
+      <kbd>D</kbd> double-tap VOL ▼ (toggle dict)<br>
+      <kbd>↑</kbd> VOL ▲ &nbsp; <kbd>↓</kbd> VOL ▼<br>
+      <kbd>←</kbd> LEFT &nbsp; <kbd>→</kbd> RIGHT<br>
+      <kbd>Enter</kbd> CONFIRM &nbsp; <kbd>Esc</kbd> BACK
+    </div>
+
+    <div class="keyboard-hint" style="margin-top:12px;">
+      <strong>How to run:</strong><br>
+      Open a terminal in the <code>prototype/</code> folder and run:<br>
+      <code style="color:#8f8;">npx serve .</code><br>
+      Then open the URL it shows (usually http://localhost:3000)
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Sample book text ──
+const BOOK_TEXT = [
+  "In my younger and more vulnerable years my father gave me some advice that I've been turning over in my mind ever since.",
+  "",
+  '"Whenever you feel like criticizing anyone," he told me, "just remember that all the people in this world haven\'t had the advantages that you\'ve had."',
+  "",
+  "He didn't say any more, but we've always been unusually communicative in a reserved way, and I understood that he meant a great deal more than that.",
+  "",
+  "In consequence, I'm inclined to reserve all judgements, a habit that has opened up many curious natures to me and also made me the victim of not a few veteran bores."
+];
+
+// ── Dictionary data (loaded from WordNet 3.1 JSON) ──
+let DICTIONARY = {};
+let dictionaryLoaded = false;
+
+async function loadDictionary() {
+  const statusEl = document.getElementById('stateText');
+  statusEl.textContent = 'LOADING DICTIONARY...';
+
+  try {
+    const resp = await fetch('dictionary.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = await resp.json();
+
+    DICTIONARY = Object.create(null);
+    for (const [word, entry] of Object.entries(raw)) {
+      DICTIONARY[word] = {
+        type: entry.t || '',
+        definition: entry.d || ''
+      };
+    }
+
+    dictionaryLoaded = true;
+    const count = Object.keys(DICTIONARY).length;
+    statusEl.textContent = `READING MODE · ${count.toLocaleString()} words loaded`;
+
+    const countEl = document.getElementById('dictWordCount');
+    if (countEl) countEl.textContent = `${count.toLocaleString()} words loaded from WordNet 3.1`;
+  } catch (e) {
+    console.warn('Could not load dictionary.json:', e.message);
+    statusEl.textContent = 'READING MODE · Dictionary not loaded\nRun: npx serve .';
+
+    const countEl = document.getElementById('dictWordCount');
+    if (countEl) countEl.textContent = 'Dictionary not loaded — see instructions below';
+  }
+}
+
+// ── State ──
+let dictMode = false;
+let overlayOpen = false;
+let currentLine = 0;
+let currentWordIndex = 0;
+let lines = [];
+let wordElements = [];
+let vocabList = new Set();
+
+// Double-tap detection for VOL ▼
+let lastVolDownTime = 0;
+const DOUBLE_TAP_MS = 400;
+
+// Overlay state
+let currentPage = 0;
+let totalPages = 1;
+let selectedRelatedIndex = -1; // -1 = none selected (vocab btn focused)
+let relatedWords = [];         // array of related word strings
+let currentLookupWord = '';    // the word currently being displayed
+
+// ── Build the text ──
+function buildText() {
+  const textArea = document.getElementById('textArea');
+  textArea.innerHTML = '';
+  lines = [];
+  wordElements = [];
+
+  BOOK_TEXT.forEach(paragraph => {
+    if (paragraph === '') {
+      const spacer = document.createElement('div');
+      spacer.style.height = '12px';
+      textArea.appendChild(spacer);
+      return;
+    }
+
+    const p = document.createElement('p');
+    p.style.marginBottom = '0';
+    p.style.textIndent = '1.2em';
+
+    const words = paragraph.split(/\s+/);
+    const lineWords = [];
+    const lineEls = [];
+
+    words.forEach((w, i) => {
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.textContent = w;
+      span.dataset.clean = w.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
+      p.appendChild(span);
+
+      if (i < words.length - 1) {
+        p.appendChild(document.createTextNode(' '));
+      }
+
+      lineWords.push(w);
+      lineEls.push(span);
+    });
+
+    lines.push(lineWords);
+    wordElements.push(lineEls);
+    textArea.appendChild(p);
+  });
+}
+
+// ── Highlight current word ──
+function updateHighlight() {
+  wordElements.forEach(lineEls => {
+    lineEls.forEach(el => el.classList.remove('highlighted'));
+  });
+
+  if (dictMode && !overlayOpen && wordElements[currentLine]) {
+    const el = wordElements[currentLine][currentWordIndex];
+    if (el) {
+      el.classList.add('highlighted');
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  updateState();
+}
+
+// ── Update state display ──
+function updateState() {
+  const stateEl = document.getElementById('stateText');
+  if (overlayOpen) {
+    let state = `DEFINITION: "${currentLookupWord}"`;
+    if (totalPages > 1) state += `\nPage ${currentPage + 1}/${totalPages}`;
+    if (selectedRelatedIndex >= 0 && relatedWords[selectedRelatedIndex]) {
+      state += `\nRelated: "${relatedWords[selectedRelatedIndex]}"`;
+    }
+    stateEl.textContent = state;
+  } else if (dictMode) {
+    const word = lines[currentLine]?.[currentWordIndex] || '';
+    stateEl.textContent = `DICT MODE · Line ${currentLine + 1}, Word ${currentWordIndex + 1}\n"${word}"`;
+  } else {
+    stateEl.textContent = 'READING MODE';
+  }
+}
+
+// ── Toggle dictionary mode ──
+function toggleDict() {
+  if (overlayOpen) return;
+
+  dictMode = !dictMode;
+  document.getElementById('dictIndicator').classList.toggle('active', dictMode);
+
+  if (dictMode) {
+    currentLine = 0;
+    currentWordIndex = 0;
+  }
+
+  updateHighlight();
+}
+
+// ── Inflection lookup helper ──
+function lookupWithInflection(cleanWord) {
+  let entry = DICTIONARY[cleanWord];
+  let lookupWord = cleanWord;
+
+  if (!entry && cleanWord.endsWith('s')) {
+    entry = DICTIONARY[cleanWord.slice(0, -1)];
+    if (entry) lookupWord = cleanWord.slice(0, -1);
+  }
+  if (!entry && cleanWord.endsWith('es')) {
+    entry = DICTIONARY[cleanWord.slice(0, -2)];
+    if (entry) lookupWord = cleanWord.slice(0, -2);
+  }
+  if (!entry && cleanWord.endsWith('ed')) {
+    entry = DICTIONARY[cleanWord.slice(0, -2)];
+    if (entry) lookupWord = cleanWord.slice(0, -2);
+  }
+  if (!entry && cleanWord.endsWith('ing')) {
+    entry = DICTIONARY[cleanWord.slice(0, -3)];
+    if (entry) lookupWord = cleanWord.slice(0, -3);
+    if (!entry) {
+      entry = DICTIONARY[cleanWord.slice(0, -3) + 'e'];
+      if (entry) lookupWord = cleanWord.slice(0, -3) + 'e';
+    }
+  }
+  if (!entry && cleanWord.endsWith('ly')) {
+    entry = DICTIONARY[cleanWord.slice(0, -2)];
+    if (entry) lookupWord = cleanWord.slice(0, -2);
+  }
+
+  return { entry, lookupWord };
+}
+
+// ── Pagination ──
+function calculatePages() {
+  const content = document.getElementById('defContent');
+  const scrollHeight = content.scrollHeight;
+  const clientHeight = content.clientHeight;
+
+  if (scrollHeight <= clientHeight) {
+    totalPages = 1;
+    currentPage = 0;
+  } else {
+    totalPages = Math.ceil(scrollHeight / clientHeight);
+    currentPage = 0;
+  }
+
+  updatePaginationUI();
+}
+
+function updatePaginationUI() {
+  const pagination = document.getElementById('defPagination');
+  const leftArrow = document.getElementById('pageArrowLeft');
+  const rightArrow = document.getElementById('pageArrowRight');
+  const pageInfo = document.getElementById('pageInfo');
+
+  if (totalPages > 1) {
+    pagination.classList.add('visible');
+    pageInfo.textContent = `Page ${currentPage + 1} / ${totalPages}`;
+    leftArrow.className = currentPage > 0 ? '' : 'page-arrow-disabled';
+    rightArrow.className = currentPage < totalPages - 1 ? '' : 'page-arrow-disabled';
+  } else {
+    pagination.classList.remove('visible');
+  }
+}
+
+function goToPage(page) {
+  if (page < 0 || page >= totalPages) return;
+  currentPage = page;
+
+  const content = document.getElementById('defContent');
+  const pageHeight = content.clientHeight;
+  content.scrollTop = page * pageHeight;
+
+  updatePaginationUI();
+  updateState();
+}
+
+// ── Related word highlighting ──
+function updateRelatedHighlight() {
+  const items = document.querySelectorAll('#rootWords .root-word-item');
+  items.forEach((item, i) => {
+    item.classList.toggle('selected', i === selectedRelatedIndex);
+  });
+
+  // Scroll the selected related word into view within the content area
+  if (selectedRelatedIndex >= 0 && items[selectedRelatedIndex]) {
+    items[selectedRelatedIndex].scrollIntoView({ block: 'nearest' });
+    // Recalculate which page we're on based on scroll position
+    const content = document.getElementById('defContent');
+    const pageHeight = content.clientHeight;
+    currentPage = Math.round(content.scrollTop / pageHeight);
+    updatePaginationUI();
+  }
+
+  updateState();
+}
+
+// ── Show definition ──
+function showDefinition(cleanWord) {
+  const overlay = document.getElementById('definitionOverlay');
+  const { entry, lookupWord } = lookupWithInflection(cleanWord);
+
+  // Reset overlay state
+  selectedRelatedIndex = -1;
+  currentPage = 0;
+  relatedWords = [];
+  currentLookupWord = lookupWord || cleanWord;
+
+  if (entry) {
+    document.getElementById('defWord').textContent = lookupWord;
+    document.getElementById('defPronunciation').textContent =
+      lookupWord !== cleanWord ? `looked up as "${lookupWord}"` : '';
+    document.getElementById('defType').textContent = entry.type;
+    document.getElementById('defText').textContent = entry.definition;
+
+    // Vocab button state
+    const vocabBtn = document.getElementById('vocabBtn');
+    if (vocabList.has(lookupWord)) {
+      vocabBtn.textContent = '✓ Added to Vocabulary Builder';
+      vocabBtn.classList.add('added');
+    } else {
+      vocabBtn.textContent = '+ Add to Vocabulary Builder';
+      vocabBtn.classList.remove('added');
+    }
+    vocabBtn.style.display = 'block';
+
+    // Related words
+    const rootContainer = document.getElementById('rootWords');
+    const stem = lookupWord.length >= 4 ? lookupWord.substring(0, 4) : lookupWord;
+    relatedWords = Object.keys(DICTIONARY)
+      .filter(w => w !== lookupWord && w.startsWith(stem) && w.length <= lookupWord.length + 5)
+      .slice(0, 8);
+
+    if (relatedWords.length > 0) {
+      rootContainer.innerHTML = '<div class="root-words-label">Related Words</div>';
+      relatedWords.forEach(rw => {
+        const item = document.createElement('div');
+        item.className = 'root-word-item';
+        const rType = DICTIONARY[rw]?.type || '';
+        item.innerHTML = `<strong>${rw}</strong>${rType ? ' <span style="color:#777;font-size:11px;">(' + rType + ')</span>' : ''}`;
+        rootContainer.appendChild(item);
+      });
+    } else {
+      rootContainer.innerHTML = '';
+    }
+  } else {
+    document.getElementById('defWord').textContent = cleanWord;
+    document.getElementById('defPronunciation').textContent = '';
+    document.getElementById('defType').textContent = '';
+    document.getElementById('defText').textContent = dictionaryLoaded
+      ? 'No definition found in dictionary.'
+      : 'Dictionary not loaded. Run: npx serve .';
+
+    document.getElementById('vocabBtn').style.display = 'none';
+    document.getElementById('rootWords').innerHTML = '';
+  }
+
+  // Reset scroll and show overlay
+  document.getElementById('defContent').scrollTop = 0;
+  overlay.classList.add('visible');
+  overlayOpen = true;
+
+  // Calculate pagination after render
+  requestAnimationFrame(() => {
+    calculatePages();
+    updateState();
+  });
+}
+
+// ── Navigation: VOL UP ──
+function pressVolUp() {
+  if (overlayOpen) {
+    // Navigate related words (move up)
+    if (relatedWords.length > 0) {
+      if (selectedRelatedIndex <= 0) {
+        selectedRelatedIndex = -1; // back to none (deselect)
+      } else {
+        selectedRelatedIndex--;
+      }
+      updateRelatedHighlight();
+    }
+    return;
+  }
+
+  if (!dictMode) return;
+
+  if (currentLine > 0) {
+    currentLine--;
+    if (currentWordIndex >= wordElements[currentLine].length) {
+      currentWordIndex = wordElements[currentLine].length - 1;
+    }
+    updateHighlight();
+  }
+}
+
+// ── Navigation: VOL DOWN ──
+function pressVolDown() {
+  if (overlayOpen) {
+    // Navigate related words (move down)
+    if (relatedWords.length > 0) {
+      if (selectedRelatedIndex < relatedWords.length - 1) {
+        selectedRelatedIndex++;
+      }
+      updateRelatedHighlight();
+    }
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastVolDownTime < DOUBLE_TAP_MS) {
+    lastVolDownTime = 0;
+    toggleDict();
+    return;
+  }
+  lastVolDownTime = now;
+
+  if (!dictMode) return;
+
+  setTimeout(() => {
+    if (lastVolDownTime !== 0 && Date.now() - lastVolDownTime >= DOUBLE_TAP_MS) {
+      lastVolDownTime = 0;
+      if (currentLine < lines.length - 1) {
+        currentLine++;
+        if (currentWordIndex >= wordElements[currentLine].length) {
+          currentWordIndex = wordElements[currentLine].length - 1;
+        }
+        updateHighlight();
+      }
+    }
+  }, DOUBLE_TAP_MS + 10);
+}
+
+// ── Navigation: LEFT ──
+function pressLeft() {
+  if (overlayOpen) {
+    // Page backward through definition
+    if (currentPage > 0) {
+      goToPage(currentPage - 1);
+    }
+    return;
+  }
+
+  if (!dictMode) return;
+
+  if (currentWordIndex > 0) {
+    currentWordIndex--;
+    updateHighlight();
+  }
+}
+
+// ── Navigation: RIGHT ──
+function pressRight() {
+  if (overlayOpen) {
+    // Page forward through definition
+    if (currentPage < totalPages - 1) {
+      goToPage(currentPage + 1);
+    }
+    return;
+  }
+
+  if (!dictMode) return;
+
+  if (currentWordIndex < (wordElements[currentLine]?.length || 1) - 1) {
+    currentWordIndex++;
+    updateHighlight();
+  }
+}
+
+// ── CONFIRM ──
+function pressConfirm() {
+  if (!dictMode) return;
+
+  if (overlayOpen) {
+    if (selectedRelatedIndex >= 0 && relatedWords[selectedRelatedIndex]) {
+      // Look up the selected related word
+      const word = relatedWords[selectedRelatedIndex];
+      showDefinition(word);
+    } else {
+      // No related word selected: toggle vocab
+      addToVocab();
+    }
+    return;
+  }
+
+  const rawWord = lines[currentLine]?.[currentWordIndex] || '';
+  const cleanWord = rawWord.replace(/[^a-zA-Z'-]/g, '').toLowerCase();
+  showDefinition(cleanWord);
+}
+
+function addToVocab() {
+  const word = document.getElementById('defWord').textContent;
+  const vocabBtn = document.getElementById('vocabBtn');
+
+  if (vocabList.has(word)) {
+    vocabList.delete(word);
+    vocabBtn.textContent = '+ Add to Vocabulary Builder';
+    vocabBtn.classList.remove('added');
+  } else {
+    vocabList.add(word);
+    vocabBtn.textContent = '✓ Added to Vocabulary Builder';
+    vocabBtn.classList.add('added');
+  }
+}
+
+// ── BACK ──
+function pressBack() {
+  if (overlayOpen) {
+    document.getElementById('definitionOverlay').classList.remove('visible');
+    document.getElementById('defPagination').classList.remove('visible');
+    overlayOpen = false;
+    selectedRelatedIndex = -1;
+    relatedWords = [];
+    updateHighlight();
+  }
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'd':
+    case 'D':
+      toggleDict();
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      pressVolUp();
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      if (!dictMode && !overlayOpen) {
+        pressVolDown();
+      } else if (overlayOpen) {
+        pressVolDown();
+      } else {
+        // In dict mode word selection, move down directly
+        if (currentLine < lines.length - 1) {
+          currentLine++;
+          if (currentWordIndex >= wordElements[currentLine].length) {
+            currentWordIndex = wordElements[currentLine].length - 1;
+          }
+          updateHighlight();
+        }
+      }
+      break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      pressLeft();
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      pressRight();
+      break;
+    case 'Enter':
+      e.preventDefault();
+      pressConfirm();
+      break;
+    case 'Escape':
+      pressBack();
+      break;
+  }
+});
+
+// ── Init ──
+buildText();
+loadDictionary();
+</script>
+
+</body>
+</html>

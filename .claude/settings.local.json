@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config --global user.name \"Dan Fong\")",
+      "Bash(git config --global user.email \"c.danielfong@gmail.com\")",
+      "Bash(gh repo create crosspoint-vocabulary-builder --public --source=. --remote=origin --push --description \"Vocabulary builder and dictionary tool for the Crosspoint Reader \\(Xteink X4 e-paper device\\)\")"
+    ]
+  }
+}
