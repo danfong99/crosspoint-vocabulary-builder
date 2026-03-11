@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Allow these files
+!.gitignore
+!README.md
+!prototype/
+prototype/*
+!prototype/dictionary.html

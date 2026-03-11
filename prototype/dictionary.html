@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
   <title>Crosspoint Dictionary Prototype</title>
   <style>
     /* ── Reset & Base ── */
@@ -553,8 +552,9 @@ let dictMode = false;
 let overlayOpen = false;
 let currentLine = 0;
 let currentWordIndex = 0;
-let lines = [];
-let wordElements = [];
+let lines = [];          // visual lines: arrays of word strings
+let wordElements = [];   // visual lines: arrays of word span elements
+let allWordSpans = [];   // flat list of all word spans (for regrouping)
 let vocabList = new Set();
 
 // Double-tap detection for VOL ▼
@@ -572,8 +572,7 @@ let currentLookupWord = '';    // the word currently being displayed
 function buildText() {
   const textArea = document.getElementById('textArea');
   textArea.innerHTML = '';
-  lines = [];
-  wordElements = [];
+  allWordSpans = [];
 
   BOOK_TEXT.forEach(paragraph => {
     if (paragraph === '') {
@@ -588,9 +587,6 @@ function buildText() {
     p.style.textIndent = '1.2em';
 
     const words = paragraph.split(/\s+/);
-    const lineWords = [];
-    const lineEls = [];
-
     words.forEach((w, i) => {
       const span = document.createElement('span');
       span.className = 'word';
@@ -602,14 +598,47 @@ function buildText() {
         p.appendChild(document.createTextNode(' '));
       }
 
-      lineWords.push(w);
-      lineEls.push(span);
+      allWordSpans.push(span);
     });
 
-    lines.push(lineWords);
-    wordElements.push(lineEls);
     textArea.appendChild(p);
   });
+
+  // After DOM render, group words into visual lines by offsetTop
+  regroupVisualLines();
+}
+
+// Group word spans into visual lines based on rendered position
+function regroupVisualLines() {
+  lines = [];
+  wordElements = [];
+
+  if (allWordSpans.length === 0) return;
+
+  let currentTop = allWordSpans[0].offsetTop;
+  let currentLineWords = [];
+  let currentLineEls = [];
+
+  allWordSpans.forEach(span => {
+    if (Math.abs(span.offsetTop - currentTop) > 2) {
+      // New visual line
+      if (currentLineEls.length > 0) {
+        lines.push(currentLineWords);
+        wordElements.push(currentLineEls);
+      }
+      currentTop = span.offsetTop;
+      currentLineWords = [];
+      currentLineEls = [];
+    }
+    currentLineWords.push(span.textContent);
+    currentLineEls.push(span);
+  });
+
+  // Push last line
+  if (currentLineEls.length > 0) {
+    lines.push(currentLineWords);
+    wordElements.push(currentLineEls);
+  }
 }
 
 // ── Highlight current word ──
